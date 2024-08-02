@@ -10,6 +10,8 @@ Notably it does NOT support light sources, cameras, or textures, but contributio
 
 To enable DAE loading with FileIO you must run 
 ```
+using FileIO
+using UUIDs
 FileIO.add_format(format"DAE", (), ".dae", [:DigitalAssetExchangeFormatIO => UUID("43182933-f65b-495a-9e05-4d939cea427d")])
 ```
 which will return a DAEScene.
