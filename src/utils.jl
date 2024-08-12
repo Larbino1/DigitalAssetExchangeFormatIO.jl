@@ -1,9 +1,5 @@
 function convert_for_glmakie(dae_scene::DAEScene)
     (;library_effects, library_materials, library_geometries, library_visual_scenes) = dae_scene
-
-    @show keys(library_effects)
-    @show keys(library_materials)
-
     if isnothing(library_visual_scenes)
         # IF no visual scenes are found, we merge all of the geometries into
         # a single mesh, and return that
