@@ -8,8 +8,29 @@ function convert_for_glmakie(dae_scene::DAEScene)
         mesh_entries = [library_geometries[mesh_url] for (mesh_url, _) in library_visual_scenes]
         transforms = [matrix for (_, matrix) in library_visual_scenes]
         meshes = [transform_mesh(entry.mesh, matrix) for (entry, matrix) in zip(mesh_entries, transforms)]
-        colors = [library_effects[library_materials[entry.material]].diffuse for entry in mesh_entries]
-        return (meshes, colors)
+        materials = [library_effects[library_materials[entry.material]] for entry in mesh_entries]
+        ret = [
+            begin
+                if isa(material, PhongShadingParams)
+                    kwargs = (;
+                        color=isnothing(material.diffuse) ? RGBA{Float32}(1.0f0, 0.0f0, 1.0f0, 1.0f0) : material.diffuse,
+                        specular=isnothing(material.shininess) ? 0.0f0 : material.shininess,
+                        shininess=isnothing(material.reflectivity) ? 0.0f0 : material.reflectivity
+                    )
+                elseif isa(material, LambertShadingParams)
+                    kwargs = (; 
+                        color=isnothing(material.diffuse) ? RGBA{Float32}(1.0f0, 0.0f0, 1.0f0, 1.0f0) : material.diffuse,
+                        specular=0.0f0, 
+                        shininess= isnothing(material.reflectivity) ? 0.0f0 : material.reflectivity
+                    )
+                else
+                    error("Unsupported material type: $(typeof(material))")
+                end
+                (mesh, kwargs)
+            end
+            for (mesh, material) in zip(meshes, materials)
+        ]
+        return ret
     end
 
 end
