@@ -160,6 +160,7 @@ function read_mesh(mesh::XMLElement)
 end
 
 function to_geometrybasics_mesh(positions, normals, face_vertex_indices, face_normal_indices)
+    N = length(face_vertex_indices)
     @assert length(face_vertex_indices) == length(face_normal_indices)
     
     # The idea here is that geometry basics has a unique list of faces,
@@ -169,32 +170,36 @@ function to_geometrybasics_mesh(positions, normals, face_vertex_indices, face_no
     # list of faces, and a longer list of vertices and normals, with some 
     # duplication, so that each unique vertex/normal pair is represented.
     fv_fn_pairs = collect(zip(Iterators.flatten(face_vertex_indices), Iterators.flatten(face_normal_indices)))
-    positions_gb = Point3f[]
-    normals_gb = Vec3f[]
+    positions_gb = Vector{Point3f}(undef, length(fv_fn_pairs)) # Preallocate to max size
+    normals_gb = Vector{Vec3f}(undef, length(fv_fn_pairs)) # Preallocate to max size
     fv_fn_map = Dict{Tuple{Int32, Int32}, Int32}()
-    for (pair) in fv_fn_pairs
+    num_pairs = 0
+    for pair in fv_fn_pairs
         fv, fn = GeometryBasics.value.(pair)
         
         idx = (fv, fn)
         if haskey(fv_fn_map, idx)
             continue
         else
-            fv_fn_map[idx] = length(positions_gb) + 1
-            push!(positions_gb, positions[fv])
-            push!(normals_gb, normals[fn])
+            num_pairs += 1
+            fv_fn_map[idx] = num_pairs
+            positions_gb[num_pairs] = positions[fv]
+            normals_gb[num_pairs] = normals[fn]
         end
     end
+    resize!(positions_gb, num_pairs) # Shrink to actual size
+    resize!(normals_gb, num_pairs) # Shrink to actual size
 
     for pair in fv_fn_pairs
         fv, fn = GeometryBasics.value.(pair)
     end
 
-    faces_gb = NgonFace{3, OffsetInteger{-1, Int32}}[]
-    for (vertex_face, normal_face) in zip(face_vertex_indices, face_normal_indices)
+    faces_gb = Vector{NgonFace{3, OffsetInteger{-1, Int32}}}(undef, N)
+    for (i, (vertex_face, normal_face)) in enumerate(zip(face_vertex_indices, face_normal_indices))
         i1 = fv_fn_map[GeometryBasics.value(vertex_face[1]), GeometryBasics.value(normal_face[1])]
         i2 = fv_fn_map[GeometryBasics.value(vertex_face[2]), GeometryBasics.value(normal_face[2])]
         i3 = fv_fn_map[GeometryBasics.value(vertex_face[3]), GeometryBasics.value(normal_face[3])]
-        push!(faces_gb, NgonFace{3, OffsetInteger{-1, Int32}}([i1, i2, i3]))
+        faces_gb[i] = NgonFace{3, OffsetInteger{-1, Int32}}(i1, i2, i3)
     end
        
 
