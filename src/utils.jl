@@ -44,16 +44,24 @@ function transform_mesh(mesh, matrix)
         end
     end
 
-    positions = GeometryBasics.metafree(GeometryBasics.coordinates(mesh))
+    positions = GeometryBasics.coordinates(mesh)
     P = eltype(positions)
     positions_transformed = [P((T * vcat(v, 1))[1:3]...) for v in positions]
     
-    if hasproperty(mesh, :normals)
-        normals = GeometryBasics.normals(mesh)
-        N = eltype(normals)
-        # Concat with zero as normals are free vectors, avoiding translation
-        normals_transformed = [N((T * vcat(v, 0))[1:3]...) for v in normals]
-        return Mesh(meta(positions_transformed; normals=normals_transformed), GeometryBasics.faces(mesh))
+    if hasproperty(mesh, :normal)
+        normals = mesh.normal
+        normals_transformed = if normals isa Vector
+            N = eltype(normals)
+            # Concat with zero as normals are free vectors, avoiding translation
+            normals_transformed = [N((T * vcat(v, 0))[1:3]...) for v in normals]
+        elseif normals isa FaceView
+            N = eltype(values(normals))
+            normals_transformed = [N((T * vcat(v, 0))[1:3]...) for v in values(normals)]
+            FaceView(normals_transformed, faces(normals))
+        else
+            error("Unsupported normals type: $(typeof(normals))")
+        end
+        return Mesh(positions_transformed, GeometryBasics.faces(mesh); normal=normals_transformed)
     end
     return Mesh(positions_transformed, GeometryBasics.faces(mesh))
 end
