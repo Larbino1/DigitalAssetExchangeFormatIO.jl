@@ -35,28 +35,22 @@ function convert_for_glmakie(dae_scene::DAEScene)
 
 end
 
-function transform_mesh(mesh, matrix)
-    vals = split(content(matrix), " ")
-    T = zeros(Float32, 4, 4)
-    for i in 1:4
-        for j in 1:4
-            T[i, j] = parse(Float32, vals[(i - 1) * 4 + j])
-        end
-    end
+function transform_mesh(mesh, matrix::Matrix)
+    @assert size(matrix) == (4, 4)
 
     positions = GeometryBasics.coordinates(mesh)
     P = eltype(positions)
-    positions_transformed = [P((T * vcat(v, 1))[1:3]...) for v in positions]
+    positions_transformed = [P((matrix * vcat(v, 1))[1:3]...) for v in positions]
     
     if hasproperty(mesh, :normal)
         normals = mesh.normal
         normals_transformed = if normals isa Vector
             N = eltype(normals)
             # Concat with zero as normals are free vectors, avoiding translation
-            normals_transformed = [N((T * vcat(v, 0))[1:3]...) for v in normals]
+            normals_transformed = [N((matrix * vcat(v, 0))[1:3]...) for v in normals]
         elseif normals isa FaceView
             N = eltype(values(normals))
-            normals_transformed = [N((T * vcat(v, 0))[1:3]...) for v in values(normals)]
+            normals_transformed = [N((matrix * vcat(v, 0))[1:3]...) for v in values(normals)]
             FaceView(normals_transformed, faces(normals))
         else
             error("Unsupported normals type: $(typeof(normals))")

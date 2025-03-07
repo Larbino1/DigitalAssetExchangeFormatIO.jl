@@ -245,28 +245,103 @@ function read_visual_scene(visual_scene::XMLElement)
     Dict(Iterators.flatten(map(read_visual_scene_node, nodes)))
 end
 
-function read_visual_scene_node(node::XMLElement)
-    rotate = get_elements_by_tagname(node, "rotate")
-    scale = get_elements_by_tagname(node, "scale")
-    skew = get_elements_by_tagname(node, "skew")
-    translate = get_elements_by_tagname(node, "translate")
-    
+function read_visual_scene_node(node::XMLElement)    
     sub_nodes = get_elements_by_tagname(node, "node")
-
-    # We assume there is only one transformation, and that it is a matrix
-    # If there are multiple transformations, I am not sure in which 
-    # order they should be applied.
-    @assert isempty(rotate) "Rotate is not supported"
-    @assert isempty(scale) "Scale is not supported"
-    @assert isempty(skew) "Skew is not supported"
-    @assert isempty(translate) "Translate is not supported"
     @assert isempty(sub_nodes) "Recursive nodes in visual scenes are not supported"
-    matrix = only(get_elements_by_tagname(node, "matrix")) 
-
+    transform::Matrix = read_transformation_elements(node)
     instance_geometry = get_elements_by_tagname(node, "instance_geometry")
-    ret = Dict(get_url(geometry)=>matrix for geometry in instance_geometry)
+    ret = Dict(get_url(geometry)=>transform for geometry in instance_geometry)
 end
 
+function read_transformation_elements(node::XMLElement)
+    matrix = [
+        1.0  0.0  0.0  0.0;
+        0.0  1.0  0.0  0.0;
+        0.0  0.0  1.0  0.0;
+        0.0  0.0  0.0  1.0
+    ]
+    for element in child_elements(node)
+        if name(element) == "matrix"
+            matrix = read_matrix(element) * matrix
+        elseif name(element) == "rotate"
+            matrix = read_rotate(element) * matrix
+        elseif name(element) == "scale"
+            matrix = read_scale(element) * matrix
+        elseif name(element) == "skew"
+            matrix = read_skew(element) * matrix
+        elseif name(element) == "translate"
+            matrix = read_translate(element) * matrix
+        elseif name(element) == "lookat"
+            @warn "Ignoring 'lookat' transformation, may cause incorrect results"
+        end
+    end
+    matrix
+end
+
+function read_matrix(node; size=(4, 4))
+    vals = split(content(node), " ")
+    @assert length(vals) == size[1] * size[2]
+    matrix = zeros(Float32, size)
+    for i in 1:size[1]
+        for j in 1:size[2]
+            matrix[i, j] = parse(Float32, vals[(i - 1) * 4 + j])
+        end
+    end
+    matrix
+end
+
+function read_rotate(node::XMLElement)
+    vals = split(content(node), " ")
+    @assert length(vals) == 4
+    axis = Vec3f(parse(Float32, vals[1]), parse(Float32, vals[2]), parse(Float32, vals[3]))
+    @assert sqrt(axis' * axis) ≈ 1.0
+    angle = parse(Float32, vals[4])
+    # Convert to matrix, https://www.euclideanspace.com/maths/geometry/rotations/conversions/angleToMatrix/index.htm
+    c = cos(angle)
+    s = sin(angle)
+    t = 1 - c
+    x = axis[1]
+    y = axis[2]
+    z = axis[3]
+    [
+        t*x*x + c       t*x*y - z*s     t*x*z + y*s  0.0;
+        t*x*y + z*s     t*y*y + c       t*y*z - x*s  0.0;
+        t*x*z - y*s     t*y*z + x*s     t*z*z + c    0.0;
+        0.0             0.0             0.0          1.0
+    ]
+end
+
+function read_scale(node::XMLElement)
+    vals = split(content(node), " ")
+    @assert length(vals) == 3
+    x = parse(Float32, vals[1])
+    y = parse(Float32, vals[2])
+    z = parse(Float32, vals[3])
+    [
+        x       0.0     0.0     0.0;
+        0.0     y       0.0     0.0;
+        0.0     0.0     z       0.0;
+        0.0     0.0     0.0     1.0
+    ]
+end
+
+function read_skew(node::XMLElement)
+    error("Skew transformation not supported by this parser")
+end
+
+function read_translate(node::XMLElement)
+    vals = split(content(node), " ")
+    @assert length(vals) == 3
+    x = parse(Float32, vals[1])
+    y = parse(Float32, vals[2])
+    z = parse(Float32, vals[3])
+    [
+        1.0  0.0  0.0 x;
+        0.0  1.0  0.0 y;
+        0.0  0.0  1.0 z;
+        0.0  0.0  0.0 1.0
+    ]
+end
 
 #################################################
 # Other
