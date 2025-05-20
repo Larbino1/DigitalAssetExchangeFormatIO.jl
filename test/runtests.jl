@@ -7,11 +7,16 @@ FileIO.add_format(format"DAE", (), ".dae", [:DigitalAssetExchangeFormatIO => UUI
 
 @testset "DigitalAssetExchangeFormatIO.jl" begin
     # Write your tests here.
-    for path in readdir("./meshes")
-        if endswith(path, ".dae")
-            fullpath= ("./meshes/$path")
-            @testset "$fullpath" begin
-                dae = load(fullpath)
+    for (rootpath, dirs, files) in walkdir("./meshes")
+        for file in files
+            dir = isempty(dirs) ? "" : joinpath(dirs)
+            path=joinpath(rootpath, dir, file)
+            @info "Testing loading $path"
+            if endswith(path, ".dae")
+                @testset "$path" begin
+                    dae = load(path)
+                    @test ~isnothing(dae)
+                end
             end
         end
     end

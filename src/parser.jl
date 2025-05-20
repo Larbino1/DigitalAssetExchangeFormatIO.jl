@@ -170,7 +170,7 @@ function to_geometrybasics_mesh(positions, normals, face_vertex_indices, face_no
 end
 
 function read_polylist(polylist::XMLElement)
-    V = Face{3, OffsetInteger{-1, Int32}}
+    V = TriangleFace{OffsetInteger{-1, Int32}}
     name = attribute(polylist, "name")
     count = parse(Int, attribute(polylist, "count", required=true))
     material = attribute(polylist, "material")
@@ -195,7 +195,7 @@ function read_polylist(polylist::XMLElement)
 end
 
 function read_triangles(triangles::XMLElement)
-    V = NgonFace{3, OffsetInteger{-1, Int32}}
+    V = TriangleFace{OffsetInteger{-1, Int32}}
     name = attribute(triangles, "name")
     count = parse(Int, attribute(triangles, "count"; required=true))
     material = attribute(triangles, "material")
